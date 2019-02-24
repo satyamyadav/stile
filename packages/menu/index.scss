@@ -1,0 +1,16 @@
+@import "../core/index.scss";
+.Menu {
+  display: flex;
+  list-style: none;
+  &-item {
+    display: inline-block;
+    padding: $padding-4;
+  }
+  &-link {
+    text-decoration: none;
+    text-transform: capitalize;
+  }
+  &--vertical {
+    flex-direction: column;
+  }
+}

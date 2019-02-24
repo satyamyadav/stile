@@ -1,0 +1,18 @@
+@import "../core/index.scss";
+.Footer {
+  position: relative;
+  display: flex;
+  &--fixed {
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    height: auto;
+  }
+  &--p4 {
+    padding: $padding-4;
+  }
+  &--p5 {
+    padding: $padding-5;
+  }
+}

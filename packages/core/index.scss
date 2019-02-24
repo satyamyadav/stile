@@ -1,0 +1,21 @@
+// core - variable, mixin
+$body-font: 'Roboto',
+sans-serif !default;
+$mono-font: "SFMono-Regular",
+Consolas,
+"Liberation Mono",
+Menlo,
+Courier,
+monospace !default;
+$body-font-size: 1rem !default;
+$body-line-height: normal !default;
+$body-text-color: #000 !default;
+$body-background: #e2e2e2 !default;
+$bg-light-1: #fff;
+$base-size: 1rem;
+$base-padding: $base-size/8;
+$padding-1: $base-padding * 1;
+$padding-2: $base-padding * 2;
+$padding-3: $base-padding * 4;
+$padding-4: $base-padding * 8;
+$padding-5: $base-padding * 16;

@@ -1,0 +1,11 @@
+// base - typography, color, normalize
+@import "../core/index.scss";
+@import "./lib/normalize.scss";
+ul,
+ol,
+dl {
+  margin: 0 auto;
+  padding: 0
+}
+
+@import "./lib/typography.scss";
