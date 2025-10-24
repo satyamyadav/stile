@@ -1,90 +1,306 @@
-# Stile
+# 🧩 Stile - Design System Analytics & Adherence Platform
 
-<a alt="Nx logo" href="https://nx.dev" target="_blank" rel="noreferrer"><img src="https://raw.githubusercontent.com/nrwl/nx/master/images/nx-logo.png" width="45"></a>
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![Nx](https://img.shields.io/badge/Nx-22.0.1-blue.svg)](https://nx.dev)
+[![TypeScript](https://img.shields.io/badge/TypeScript-5.9.2-blue.svg)](https://www.typescriptlang.org/)
 
-✨ Your new, shiny [Nx workspace](https://nx.dev) is almost ready ✨.
+**Stile** is an open-source analytics and adherence platform that helps organizations **measure**, **track**, and **improve** their design system adoption across engineering teams.
 
-[Learn more about this workspace setup and its capabilities](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects) or run `npx nx graph` to visually explore what was created. Now, let's get you up to speed!
+## 🚀 Quick Start
 
-## Finish your CI setup
+### Prerequisites
 
-[Click here to finish setting up your workspace!](https://cloud.nx.app/connect/rFSmSxiVRP)
+- Node.js ≥ 18
+- Docker & Docker Compose
+- Git
 
+### Installation
 
-## Generate a library
+1. **Clone the repository**
+   ```bash
+   git clone https://github.com/your-org/stile.git
+   cd stile
+   ```
 
-```sh
-npx nx g @nx/js:lib packages/pkg1 --publishable --importPath=@my-org/pkg1
+2. **Install dependencies**
+   ```bash
+   npm install
+   ```
+
+3. **Start infrastructure**
+   ```bash
+   npm run docker:up
+   ```
+
+4. **Build all packages**
+   ```bash
+   npm run build
+   ```
+
+5. **Start the dashboard**
+   ```bash
+   npm run serve:dashboard
+   ```
+
+## 📦 Architecture
+
+Stile consists of four main modules:
+
+```mermaid
+flowchart LR
+    subgraph SCANNER["@stile/cli (Scanner)"]
+        SRC["Source Repos"] --> CORE["Stile Core Engine (Plugin System)"]
+        CORE --> REPORT["Report JSON/NDJSON"]
+    end
+
+    subgraph EXPORTER["@stile/exporter (Exporter)"]
+        REPORT --> HTTP["HTTP/S3/Kafka"]
+    end
+
+    subgraph LOADER["@stile/loader (Loader)"]
+        HTTP --> VALIDATE["Validate + Transform"]
+        VALIDATE --> CH[(ClickHouse/Postgres)]
+    end
+
+    subgraph DASHBOARD["@stile/dashboard (Analytics)"]
+        CH --> API["API (Next.js Routes / Fastify)"]
+        API --> UI["Dashboard UI"]
+    end
 ```
 
-## Run tasks
+## 🛠️ Usage
 
-To build the library use:
+### 1. Scanner CLI
 
-```sh
-npx nx build pkg1
+Scan your codebase for design system adherence:
+
+```bash
+# Initialize Stile in your project
+npx @stile/cli init
+
+# Scan your codebase
+npx @stile/cli scan --path ./src --output stile-report.json
+
+# Validate configuration
+npx @stile/cli validate
 ```
 
-To run any task with Nx use:
+### 2. Exporter
 
-```sh
-npx nx <target> <project-name>
+Export scan results to various destinations:
+
+```bash
+# Export to HTTP endpoint
+npx @stile/exporter push --config stile.exporter.config.js
+
+# Export to S3
+npx @stile/exporter push --config s3.config.js
+
+# Export to Kafka
+npx @stile/exporter push --config kafka.config.js
 ```
 
-These targets are either [inferred automatically](https://nx.dev/concepts/inferred-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects) or defined in the `project.json` or `package.json` files.
+### 3. Loader
 
-[More about running tasks in the docs &raquo;](https://nx.dev/features/run-tasks?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+Load scan results into analytics databases:
 
-## Versioning and releasing
+```bash
+# Start the loader API
+npx @stile/loader serve --port 3001
 
-To version and release the library use
-
-```
-npx nx release
-```
-
-Pass `--dry-run` to see what would happen without actually releasing the library.
-
-[Learn more about Nx release &raquo;](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-
-## Keep TypeScript project references up to date
-
-Nx automatically updates TypeScript [project references](https://www.typescriptlang.org/docs/handbook/project-references.html) in `tsconfig.json` files to ensure they remain accurate based on your project dependencies (`import` or `require` statements). This sync is automatically done when running tasks such as `build` or `typecheck`, which require updated references to function correctly.
-
-To manually trigger the process to sync the project graph dependencies information to the TypeScript project references, run the following command:
-
-```sh
-npx nx sync
+# Create database schema
+npx @stile/loader schema --config stile.loader.config.js
 ```
 
-You can enforce that the TypeScript project references are always in the correct state when running in CI by adding a step to your CI job configuration that runs the following command:
+### 4. Dashboard
 
-```sh
-npx nx sync:check
+Access the analytics dashboard:
+
+```bash
+# Start the dashboard
+npm run serve:dashboard
+
+# Open http://localhost:3000
 ```
 
-[Learn more about nx sync](https://nx.dev/reference/nx-commands#sync)
+## 📊 Features
 
+### Scanner Engine
+- **Plugin-based architecture** - Extensible rule system
+- **Framework agnostic** - Works with React, Vue, Angular, etc.
+- **Fast scanning** - Optimized for large codebases
+- **Custom rules** - Write your own adherence rules
 
-[Learn more about Nx on CI](https://nx.dev/ci/intro/ci-with-nx#ready-get-started-with-your-provider?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Analytics Dashboard
+- **Adherence metrics** - Track design system adoption
+- **Violation trends** - Monitor rule violations over time
+- **Project health** - Compare adherence across projects
+- **Team insights** - Identify areas for improvement
 
-## Install Nx Console
+### Data Pipeline
+- **Multiple export formats** - HTTP, S3, Kafka
+- **Database support** - ClickHouse, PostgreSQL
+- **Real-time processing** - Stream processing capabilities
+- **Data validation** - Schema validation and deduplication
 
-Nx Console is an editor extension that enriches your developer experience. It lets you run tasks, generate code, and improves code autocompletion in your IDE. It is available for VSCode and IntelliJ.
+## 🔧 Configuration
 
-[Install Nx Console &raquo;](https://nx.dev/getting-started/editor-setup?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Scanner Configuration (`stile.config.js`)
 
-## Useful links
+```javascript
+export default {
+  rootDir: "./src",
+  rules: [
+    {
+      test: /\.(t|j)sx?$/,
+      use: ["@stile/plugin-no-inline-style", "@stile/plugin-ds-usage"]
+    }
+  ],
+  output: {
+    format: "json"
+  },
+  exclude: [
+    "node_modules/**",
+    "dist/**",
+    "build/**"
+  ]
+};
+```
 
-Learn more:
+### Exporter Configuration (`stile.exporter.config.js`)
 
-- [Learn more about this workspace setup](https://nx.dev/nx-api/js?utm_source=nx_project&amp;utm_medium=readme&amp;utm_campaign=nx_projects)
-- [Learn about Nx on CI](https://nx.dev/ci/intro/ci-with-nx?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [Releasing Packages with Nx release](https://nx.dev/features/manage-releases?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
-- [What are Nx plugins?](https://nx.dev/concepts/nx-plugins?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+```javascript
+export default {
+  type: "http",
+  endpoint: "http://localhost:3001",
+  batchSize: 100,
+  retries: 3,
+  timeout: 30000,
+  auth: {
+    type: "api-key",
+    value: "your-api-key-here"
+  }
+};
+```
 
-And join the Nx community:
-- [Discord](https://go.nx.dev/community)
-- [Follow us on X](https://twitter.com/nxdevtools) or [LinkedIn](https://www.linkedin.com/company/nrwl)
-- [Our Youtube channel](https://www.youtube.com/@nxdevtools)
-- [Our blog](https://nx.dev/blog?utm_source=nx_project&utm_medium=readme&utm_campaign=nx_projects)
+### Loader Configuration (`stile.loader.config.js`)
+
+```javascript
+export default {
+  database: {
+    type: "clickhouse",
+    host: "localhost",
+    port: 8123,
+    database: "stile",
+    username: "stile",
+    password: "stile123"
+  },
+  batchSize: 1000,
+  retries: 3
+};
+```
+
+## 🧩 Default Plugins
+
+Stile comes with several built-in plugins:
+
+- **`@stile/plugin-no-inline-style`** - Detects inline styles
+- **`@stile/plugin-ds-usage`** - Tracks design system usage
+- **`@stile/plugin-unused-components`** - Finds unused components
+- **`@stile/plugin-inconsistent-spacing`** - Detects spacing issues
+- **`@stile/plugin-accessibility`** - Checks accessibility compliance
+
+## 🚀 Development
+
+### Project Structure
+
+```
+stile/
+├── packages/
+│   ├── cli/                 # Scanner CLI
+│   ├── core/                # Engine & resolver
+│   ├── exporter/            # Export module
+│   ├── loader/              # DB ingestion
+│   ├── dashboard/           # Next.js dashboard
+│   ├── rules/               # Default rule plugins
+│   └── types/               # Shared TS types
+├── infra/
+│   ├── clickhouse/
+│   ├── kafka/
+│   └── grafana/
+└── docs/
+    └── technical-requirements.md
+```
+
+### Available Scripts
+
+```bash
+# Build all packages
+npm run build
+
+# Run tests
+npm run test
+
+# Lint code
+npm run lint
+
+# Type check
+npm run typecheck
+
+# Start infrastructure
+npm run docker:up
+
+# Stop infrastructure
+npm run docker:down
+
+# Start dashboard
+npm run serve:dashboard
+```
+
+### Adding New Plugins
+
+1. Create a new plugin in `packages/rules/src/`
+2. Implement the `Plugin` interface
+3. Export the plugin from `packages/rules/src/index.ts`
+4. Use the plugin in your configuration
+
+## 📈 Roadmap
+
+- [ ] **Phase 1** - Scanner Core + CLI (2-3 weeks)
+- [ ] **Phase 2** - Exporter (1-2 weeks)
+- [ ] **Phase 3** - Loader + DB schema (2-3 weeks)
+- [ ] **Phase 4** - Analytics Dashboard (3-4 weeks)
+- [ ] **Phase 5** - Runtime SDK (optional)
+
+## 🤝 Contributing
+
+We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
+
+### Development Setup
+
+1. Fork the repository
+2. Create a feature branch
+3. Make your changes
+4. Add tests
+5. Submit a pull request
+
+## 📄 License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## 🙏 Acknowledgments
+
+- [Nx](https://nx.dev) for the monorepo tooling
+- [TypeScript](https://www.typescriptlang.org/) for type safety
+- [Next.js](https://nextjs.org/) for the dashboard
+- [ClickHouse](https://clickhouse.com/) for analytics storage
+
+## 📞 Support
+
+- 📧 Email: support@stile.dev
+- 🐛 Issues: [GitHub Issues](https://github.com/your-org/stile/issues)
+- 📖 Documentation: [docs.stile.dev](https://docs.stile.dev)
+
+---
+
+**Made with ❤️ by the Stile team**

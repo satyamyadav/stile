@@ -1,0 +1,18 @@
+{
+  "name": "@stile/rules",
+  "version": "0.0.0",
+  "license": "MIT",
+  "main": "./src/index.ts",
+  "types": "./src/index.ts",
+  "private": true,
+  "dependencies": {
+    "@stile/types": "file:../types",
+    "ts-morph": "^21.0.1",
+    "postcss": "^8.4.32",
+    "postcss-selector-parser": "^6.0.13"
+  },
+  "devDependencies": {
+    "typescript": "~5.9.2",
+    "@types/node": "^20.10.5"
+  }
+}
