@@ -1,0 +1,157 @@
+{
+  "id": null,
+  "uid": "stile-violations",
+  "title": "Stile Violation Insights",
+  "tags": ["stile", "violations"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Top Violated Plugins",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT plugin, count() AS violations, uniq(file) AS affected_files FROM ds_findings WHERE project = '${project}' AND $__timeFilter(timestamp) GROUP BY plugin ORDER BY violations DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "violations", "desc": true }]
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Hotspot Files",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT file, count() AS violations, arrayStringConcat(groupArrayDistinct(plugin), ', ') AS plugins FROM ds_findings WHERE project = '${project}' AND $__timeFilter(timestamp) GROUP BY file ORDER BY violations DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "violations", "desc": true }]
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Violations by Severity",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 8 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 0,
+          "rawSql": "SELECT toStartOfInterval(timestamp, INTERVAL 1 DAY) AS time, severity, count() AS value FROM ds_findings WHERE project = '${project}' AND $__timeFilter(timestamp) GROUP BY time, severity ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 4,
+      "type": "table",
+      "title": "Latest Violations",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 18 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT timestamp, severity, plugin, message, file, line, column FROM ds_findings WHERE project = '${project}' ORDER BY timestamp DESC LIMIT 50"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "timestamp", "desc": true }]
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "type": "query",
+        "label": "Project",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "stile-clickhouse"
+        },
+        "definition": "SELECT DISTINCT project FROM ds_findings ORDER BY project",
+        "refresh": 1,
+        "multi": false,
+        "options": [],
+        "query": "SELECT DISTINCT project FROM ds_findings ORDER BY project",
+        "current": {
+          "text": "./src",
+          "value": "./src"
+        }
+      }
+    ]
+  },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"] }
+}

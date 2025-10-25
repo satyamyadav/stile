@@ -102,6 +102,7 @@ export class StileExporter {
       
       spinner.succeed(chalk.green("Export completed successfully!"));
     } catch (error) {
+      console.error(error);
       spinner.fail(chalk.red("Export failed:"));
       throw error;
     }
@@ -115,20 +116,7 @@ export class StileExporter {
       throw new Error("HTTP client not initialized");
     }
 
-    const batchSize = this.config.batchSize || 100;
-    const findings = report.findings;
-    
-    // Export metadata first
-    await this.httpClient.post("/reports", {
-      meta: report.meta,
-      summary: report.summary,
-    });
-
-    // Export findings in batches
-    for (let i = 0; i < findings.length; i += batchSize) {
-      const batch = findings.slice(i, i + batchSize);
-      await this.httpClient.post("/findings", batch);
-    }
+    await this.httpClient.post("/reports", report);
   }
 
   /**
@@ -177,6 +165,7 @@ export class StileExporter {
       // Send findings in batches
       const batchSize = this.config.batchSize || 100;
       const findings = report.findings;
+      const components = report.components || [];
       
       for (let i = 0; i < findings.length; i += batchSize) {
         const batch = findings.slice(i, i + batchSize);
@@ -185,6 +174,17 @@ export class StileExporter {
           messages: batch.map(finding => ({
             key: finding.project,
             value: JSON.stringify(finding),
+          })),
+        });
+      }
+
+      for (let i = 0; i < components.length; i += batchSize) {
+        const batch = components.slice(i, i + batchSize);
+        await producer.send({
+          topic: "stile-components",
+          messages: batch.map(component => ({
+            key: component.project,
+            value: JSON.stringify(component),
           })),
         });
       }

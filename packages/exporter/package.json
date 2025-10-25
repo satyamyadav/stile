@@ -4,6 +4,9 @@
   "license": "MIT",
   "main": "./src/index.ts",
   "types": "./src/index.ts",
+  "bin": {
+    "stile-exporter": "./bin/stile-exporter.js"
+  },
   "private": true,
   "dependencies": {
     "@stile/types": "file:../types",
@@ -11,7 +14,8 @@
     "aws-sdk": "^2.1501.0",
     "kafkajs": "^2.2.4",
     "chalk": "^4.1.2",
-    "ora": "^5.4.1"
+    "ora": "^5.4.1",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
     "typescript": "~5.9.2",

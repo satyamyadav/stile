@@ -4,9 +4,11 @@ try {
   require("tsconfig-paths/register");
   require("@swc-node/register");
 } catch (error) {
-  console.error("Failed to bootstrap CLI runtime. Please run `npm install` first.");
+  console.error("Failed to bootstrap loader runtime. Please run `npm install` first.");
   console.error(error);
   process.exit(1);
 }
 
-require("../src/index.ts");
+const { runLoaderCli } = require("../src/cli.ts");
+
+runLoaderCli();

@@ -30,14 +30,15 @@ program
     const spinner = ora("Initializing Stile scan...").start();
     
     try {
-      // Load configuration
       const config = await loadConfig(options.config, options.path);
       spinner.text = "Loading plugins...";
-      
-      // Initialize engine
+
       const engine = new StileEngine();
-      await engine.loadPlugins(config.rules.flatMap(rule => rule.use));
-      
+      const pluginNames = config.rules.flatMap((rule) =>
+        rule.plugins.map((plugin) => (typeof plugin === "string" ? plugin : plugin.name))
+      );
+      await engine.ensurePlugins(pluginNames);
+
       spinner.text = "Scanning files...";
       
       // Run scan
@@ -113,11 +114,13 @@ async function loadConfig(configPath: string, rootDir?: string): Promise<StileCo
     const config = await import(fullPath);
     const defaultConfig = config.default || config;
     
+    const rawConfig = defaultConfig || {};
+
     return {
-      rootDir: rootDir || defaultConfig.rootDir || "./src",
-      rules: defaultConfig.rules || [],
-      output: defaultConfig.output || { format: "json" },
-      exclude: defaultConfig.exclude || [],
+      rootDir: rootDir || rawConfig.rootDir || "./src",
+      rules: normalizeRules(rawConfig.rules || []),
+      output: rawConfig.output || { format: "json" },
+      exclude: rawConfig.exclude || [],
     };
   } catch (error) {
     throw new Error(`Failed to load configuration: ${error.message}`);
@@ -144,7 +147,11 @@ function generateDefaultConfig(): string {
   rules: [
     {
       test: /\\.(t|j)sx?$/,
-      use: ["@stile/plugin-no-inline-style", "@stile/plugin-ds-usage"]
+      plugins: [
+        "@stile/plugin-no-inline-style",
+        "@stile/plugin-ds-usage",
+        "@stile/plugin-react-component-analysis"
+      ]
     }
   ],
   output: {
@@ -156,6 +163,35 @@ function generateDefaultConfig(): string {
     "build/**"
   ]
 };`;
+}
+
+function normalizeRules(rules: any[]): StileConfig["rules"] {
+  return rules.map((rule: any) => {
+    let test: RegExp | undefined;
+    if (rule.test instanceof RegExp) {
+      test = rule.test;
+    } else if (typeof rule.test === "string") {
+      const regexMatch = rule.test.match(/^\/(.+)\/([gimsuy]*)$/);
+      test = regexMatch ? new RegExp(regexMatch[1], regexMatch[2]) : new RegExp(rule.test);
+    }
+    const plugins =
+      rule.plugins ||
+      rule.use ||
+      [];
+
+    const normalizedPlugins = Array.isArray(plugins)
+      ? plugins.map((entry: any) => {
+          if (typeof entry === "string") return entry;
+          if (entry?.name) return { name: entry.name, options: entry.options };
+          throw new Error(`Invalid plugin reference: ${JSON.stringify(entry)}`);
+        })
+      : [];
+
+    return {
+      test,
+      plugins: normalizedPlugins,
+    };
+  });
 }
 
 // Parse command line arguments

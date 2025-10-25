@@ -22,7 +22,7 @@ ORDER BY (project, commit, timestamp);
 -- Create findings table
 CREATE TABLE IF NOT EXISTS ds_findings (
     project String,
-    rule String,
+    plugin String,
     file String,
     message String,
     severity String,
@@ -31,7 +31,22 @@ CREATE TABLE IF NOT EXISTS ds_findings (
     commit Nullable(String),
     timestamp DateTime
 ) ENGINE = MergeTree()
-ORDER BY (project, rule, timestamp);
+ORDER BY (project, plugin, timestamp);
+
+-- Create component usage table
+CREATE TABLE IF NOT EXISTS ds_component_usage (
+    project String,
+    file String,
+    component String,
+    source String,
+    category String,
+    occurrences UInt32,
+    props Array(String),
+    framework Nullable(String),
+    commit Nullable(String),
+    collected_at DateTime
+) ENGINE = MergeTree()
+ORDER BY (project, component, collected_at);
 
 -- Create materialized view for daily adherence scores
 CREATE MATERIALIZED VIEW IF NOT EXISTS daily_adherence
@@ -47,13 +62,26 @@ FROM ds_reports
 GROUP BY project, date;
 
 -- Create materialized view for rule violations
-CREATE MATERIALIZED VIEW IF NOT EXISTS rule_violations
+CREATE MATERIALIZED VIEW IF NOT EXISTS plugin_violations
 ENGINE = SummingMergeTree()
-ORDER BY (project, rule, date)
+ORDER BY (project, plugin, date)
 AS SELECT
     project,
-    rule,
+    plugin,
     toDate(timestamp) as date,
     count() as violation_count
 FROM ds_findings
-GROUP BY project, rule, date;
+GROUP BY project, plugin, date;
+
+-- Create materialized view for component usage trends
+CREATE MATERIALIZED VIEW IF NOT EXISTS component_usage_daily
+ENGINE = SummingMergeTree()
+ORDER BY (project, component, date)
+AS SELECT
+    project,
+    component,
+    category,
+    toDate(collected_at) as date,
+    sum(occurrences) as total_occurrences
+FROM ds_component_usage
+GROUP BY project, component, category, date;

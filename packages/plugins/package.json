@@ -1,5 +1,5 @@
 {
-  "name": "@stile/rules",
+  "name": "@stile/plugins",
   "version": "0.0.0",
   "license": "MIT",
   "main": "./src/index.ts",

@@ -13,7 +13,8 @@
     "commander": "^11.1.0",
     "chalk": "^4.1.2",
     "ora": "^5.4.1",
-    "fs-extra": "^11.2.0"
+    "fs-extra": "^11.2.0",
+    "tsconfig-paths": "^4.2.0"
   },
   "devDependencies": {
     "typescript": "~5.9.2",

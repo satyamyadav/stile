@@ -1,0 +1,232 @@
+{
+  "id": null,
+  "uid": "stile-token-drift",
+  "title": "Stile Token Drift",
+  "tags": ["stile", "token-drift"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "stat",
+      "title": "Design System Coverage",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 0, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT if(sum(occurrences) = 0, 0, round(sumIf(occurrences, category = 'design-system') / sum(occurrences) * 100, 2)) AS coverage FROM ds_component_usage WHERE project = '${project}' AND $__timeFilter(collected_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "fields": "", "values": false, "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 2,
+      "type": "stat",
+      "title": "Custom Component Share",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 8, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT if(sum(occurrences) = 0, 0, round(sumIf(occurrences, category = 'custom') / sum(occurrences) * 100, 2)) AS share FROM ds_component_usage WHERE project = '${project}' AND $__timeFilter(collected_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "fields": "", "values": false, "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 3,
+      "type": "stat",
+      "title": "Third-Party Usage",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 0 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT if(sum(occurrences) = 0, 0, round(sumIf(occurrences, category = 'third-party') / sum(occurrences) * 100, 2)) AS share FROM ds_component_usage WHERE project = '${project}' AND $__timeFilter(collected_at)"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percent",
+          "decimals": 2,
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "orientation": "horizontal",
+        "textMode": "value",
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "center",
+        "reduceOptions": { "fields": "", "values": false, "calcs": ["lastNotNull"] }
+      }
+    },
+    {
+      "id": 4,
+      "type": "timeseries",
+      "title": "Category Mix Over Time",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 10, "w": 24, "x": 0, "y": 4 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 0,
+          "rawSql": "SELECT toDate(collected_at) AS time, category, sum(occurrences) AS value FROM ds_component_usage WHERE project = '${project}' AND $__timeFilter(collected_at) GROUP BY time, category ORDER BY time"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "unit": "none",
+          "decimals": 0,
+          "color": { "mode": "palette-classic" },
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "multi", "sort": "none" }
+      }
+    },
+    {
+      "id": 5,
+      "type": "table",
+      "title": "Top Custom Components",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 0, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT component, sum(occurrences) AS total_occurrences FROM ds_component_usage WHERE project = '${project}' AND category = 'custom' AND $__timeFilter(collected_at) GROUP BY component ORDER BY total_occurrences DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "total_occurrences", "desc": true }]
+      }
+    },
+    {
+      "id": 6,
+      "type": "table",
+      "title": "Third-Party Dependencies",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 10, "w": 12, "x": 12, "y": 14 },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT component, source, sum(occurrences) AS total_occurrences FROM ds_component_usage WHERE project = '${project}' AND category = 'third-party' AND $__timeFilter(collected_at) GROUP BY component, source ORDER BY total_occurrences DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "total_occurrences", "desc": true }]
+      }
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "type": "query",
+        "label": "Project",
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "stile-clickhouse"
+        },
+        "definition": "SELECT DISTINCT project FROM ds_component_usage ORDER BY project",
+        "refresh": 1,
+        "multi": false,
+        "options": [],
+        "query": "SELECT DISTINCT project FROM ds_component_usage ORDER BY project",
+        "current": {
+          "text": "./src",
+          "value": "./src"
+        }
+      }
+    ]
+  },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"] }
+}

@@ -1,0 +1,133 @@
+{
+  "id": null,
+  "uid": "stile-component-analysis",
+  "title": "Stile Component Analysis",
+  "tags": ["stile", "design-system"],
+  "timezone": "browser",
+  "schemaVersion": 38,
+  "version": 1,
+  "refresh": "30s",
+  "panels": [
+    {
+      "id": 1,
+      "type": "table",
+      "title": "Component Category Breakdown",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 8, "w": 10, "x": 0, "y": 0 },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "total_occurrences", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT category, sum(occurrences) AS total_occurrences FROM ds_component_usage WHERE project = '${project}' GROUP BY category ORDER BY total_occurrences DESC"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 2,
+      "type": "table",
+      "title": "Top Components by Usage",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 8, "w": 14, "x": 10, "y": 0 },
+      "options": {
+        "showHeader": true,
+        "sortBy": [{ "displayName": "total_occurrences", "desc": true }]
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 1,
+          "rawSql": "SELECT component, category, sum(occurrences) AS total_occurrences FROM ds_component_usage WHERE project = '${project}' GROUP BY component, category ORDER BY total_occurrences DESC LIMIT 10"
+        }
+      ],
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "align": "auto" },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      }
+    },
+    {
+      "id": 3,
+      "type": "timeseries",
+      "title": "Design System Usage Over Time",
+      "datasource": {
+        "type": "grafana-clickhouse-datasource",
+        "uid": "stile-clickhouse"
+      },
+      "gridPos": { "h": 12, "w": 24, "x": 0, "y": 8 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": {
+            "drawStyle": "line",
+            "lineInterpolation": "smooth",
+            "lineWidth": 2,
+            "showPoints": "auto"
+          },
+          "unit": "none",
+          "mappings": []
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": { "displayMode": "table", "placement": "bottom", "showLegend": true },
+        "tooltip": { "mode": "single", "sort": "none" }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "queryType": "sql",
+          "format": 0,
+          "rawSql": "SELECT toDate(collected_at) AS time, component, sum(occurrences) AS value FROM ds_component_usage WHERE project = '${project}' AND category = 'design-system' AND $__timeFilter(collected_at) GROUP BY time, component ORDER BY time"
+        }
+      ]
+    }
+  ],
+  "templating": {
+    "list": [
+      {
+        "name": "project",
+        "type": "query",
+        "label": "Project",
+        "hide": 0,
+        "datasource": {
+          "type": "grafana-clickhouse-datasource",
+          "uid": "stile-clickhouse"
+        },
+        "definition": "SELECT DISTINCT project FROM ds_component_usage ORDER BY project",
+        "refresh": 1,
+        "multi": false,
+        "options": [],
+        "query": "SELECT DISTINCT project FROM ds_component_usage ORDER BY project",
+        "current": {
+          "text": "./src",
+          "value": "./src"
+        }
+      }
+    ]
+  },
+  "time": { "from": "now-30d", "to": "now" },
+  "timepicker": { "refresh_intervals": ["10s", "30s", "1m", "5m", "15m", "1h"] }
+}

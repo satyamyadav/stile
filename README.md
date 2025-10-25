@@ -123,6 +123,47 @@ npm run serve:dashboard
 # Open http://localhost:3000
 ```
 
+### Component Analysis Pipeline (ClickHouse + Grafana)
+
+Run the full scanner → exporter → loader → dashboard loop using the bundled Material UI test app:
+
+1. **Start infrastructure**
+   ```bash
+   npm run docker:up
+   # Wait for ClickHouse and Grafana to finish booting
+   ```
+
+2. **Create analytics schema (one-time)**
+   ```bash
+   node packages/loader/bin/stile-loader.js schema --config stile.loader.config.js
+   ```
+
+3. **Start the loader API**
+   ```bash
+   node packages/loader/bin/stile-loader.js serve --config stile.loader.config.js --port 3001
+   ```
+
+4. **Run a component analysis scan against the demo app**
+   ```bash
+   npx stile scan \
+     --config .test/material-ui-vite/stile.config.js \
+     --path .test/material-ui-vite/src \
+     --output .test/material-ui-vite/stile-report.json
+   ```
+
+5. **Export the report to the loader**
+   ```bash
+   node packages/exporter/bin/stile-exporter.js push \
+     --config stile.exporter.config.js \
+     --file .test/material-ui-vite/stile-report.json
+   ```
+
+6. **Explore the Grafana dashboard**
+   - Sign in at [http://localhost:3000](http://localhost:3000) (admin / admin)
+   - Open the *Stile Component Analysis* dashboard to review design-system vs. custom component trends
+
+The Grafana provisioning files under `infra/grafana` automatically register the ClickHouse datasource and pre-built dashboard so the metrics are ready as soon as data is ingested.
+
 ## 📊 Features
 
 ### Scanner Engine
@@ -153,7 +194,11 @@ export default {
   rules: [
     {
       test: /\.(t|j)sx?$/,
-      use: ["@stile/plugin-no-inline-style", "@stile/plugin-ds-usage"]
+      plugins: [
+        "@stile/plugin-no-inline-style",
+        "@stile/plugin-ds-usage",
+        "@stile/plugin-react-component-analysis"
+      ]
     }
   ],
   output: {

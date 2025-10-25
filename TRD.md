@@ -3,7 +3,7 @@
 **Project:** Stile – Design System Analytics & Adherence Platform  
 **Author:** Satyam Yadav  
 **Date:** October 2025  
-**Version:** 1.1  
+**Version:** 1.2  
 
 ---
 
@@ -11,26 +11,26 @@
 
 **Stile** is an open-source analytics and adherence platform that helps organizations **measure**, **track**, and **improve** their design system adoption across engineering teams.
 
-It consists of four main modules:
+It consists of modular components:  
 1. **Scanner CLI** – Scans codebases using a Webpack-like plugin system.  
-2. **Exporter** – Sends scan results to ingestion endpoints or data stores.  
-3. **Loader** – Transforms and loads data into analytics databases.  
-4. **Analytics** – Visualizes design-system health, adoption, and adherence.
+2. **Exporter** – Sends scan results to ingestion pipelines.  
+3. **Loader** – Normalizes and loads data into analytics databases.  
+4. **Grafana Integration** – Visualizes design system adherence, adoption, and drift metrics.
 
 ---
 
 ## 2. Goals
 
 ### Primary Objectives
-- Quantify design-system adoption and adherence.
-- Support a plugin-based scanning engine.
-- Provide a complete pipeline from scan → storage → insights.
-- Allow both self-hosted and enterprise deployments.
+- Quantify design-system adoption and adherence.  
+- Build a **plugin-based scanner** architecture similar to Webpack.  
+- Enable a scalable ELTP (Extract–Load–Transform–Publish) pipeline.  
+- Integrate with Grafana for analytics instead of building a custom dashboard.
 
 ### Non-Goals
-- Replacing linters (ESLint, Stylelint).  
-- Providing UI component libraries.  
-- Forcing specific DS frameworks (Stile is framework-agnostic).
+- Replace existing linters (ESLint, Stylelint).  
+- Ship UI component libraries.  
+- Lock users to a specific DB or visualization tool.
 
 ---
 
@@ -38,32 +38,17 @@ It consists of four main modules:
 
 ```mermaid
 flowchart LR
-    subgraph SCANNER["@stile/cli (Scanner)"]
-        SRC["Source Repos"] --> CORE["Stile Core Engine (Plugin System)"]
-        CORE --> REPORT["Report JSON/NDJSON"]
-    end
-
-    subgraph EXPORTER["@stile/exporter (Exporter)"]
-        REPORT --> HTTP["HTTP/S3/Kafka"]
-    end
-
-    subgraph LOADER["@stile/loader (Loader)"]
-        HTTP --> VALIDATE["Validate + Transform"]
-        VALIDATE --> CH[(ClickHouse/Postgres)]
-    end
-
-    subgraph DASHBOARD["@stile/dashboard (Analytics)"]
-        CH --> API["API (Next.js Routes / Fastify)"]
-        API --> UI["Dashboard UI"]
-    end
-````
+    SCAN["@stile/cli (Scanner)"] --> EXPORT["@stile/exporter"]
+    EXPORT --> LOAD["@stile/loader"]
+    LOAD --> DB[(ClickHouse/Postgres)]
+    DB --> GRAFANA["Grafana Dashboards"]
+```
 
 ---
 
 ## 4. Monorepo Setup (Nx)
 
 ### Initialize Workspace
-
 ```bash
 npx create-nx-workspace@latest stile
 cd stile
@@ -71,155 +56,86 @@ npm install -D typescript eslint prettier
 ```
 
 ### Create Packages
-
 ```bash
 nx g @nx/node:library core --directory=packages --unitTestRunner=jest
 nx g @nx/node:application cli --directory=packages
 nx g @nx/node:library exporter --directory=packages
 nx g @nx/node:library loader --directory=packages
-nx g @nx/next:app dashboard --directory=packages
+nx g @nx/node:library plugins --directory=packages
+nx g @nx/node:library types --directory=packages
 ```
 
 ### Directory Layout
-
 ```
 stile/
-├── apps/
-│   └── dashboard/           # Next.js dashboard
 ├── packages/
-│   ├── cli/                 # Scanner CLI
-│   ├── core/                # Engine & resolver
-│   ├── exporter/            # Export module
-│   ├── loader/              # DB ingestion
-│   ├── rules/               # Default rule plugins
-│   └── types/               # Shared TS types
-├── infra/
-│   ├── clickhouse/
-│   ├── kafka/
-│   └── grafana/
-└── docs/
-    └── technical-requirements.md
+│   ├── cli/               # Scanner CLI (@stile/cli)
+│   ├── core/              # Plugin runner and resolver
+│   ├── exporter/          # Report exporter
+│   ├── loader/            # Data ingestion service
+│   ├── plugins/           # Default plugin set
+│   ├── eltp/              # Optional orchestrator CLI
+│   └── types/             # Shared interfaces
+└── infra/
+    ├── clickhouse/        # Schema + Docker setup
+    ├── grafana/           # Predefined dashboards
+    └── kafka/             # Optional ingestion queue
 ```
 
-### Inter-package Dependencies
+### Package Dependencies
 
 ```mermaid
 graph TD
   CLI["@stile/cli"] --> CORE["@stile/core"]
-  CLI --> RULES["@stile/rules"]
+  CLI --> PLUG["@stile/plugins"]
   EXPORT["@stile/exporter"] --> TYPES["@stile/types"]
   LOAD["@stile/loader"] --> TYPES
-  DASH["@stile/dashboard"] --> LOAD
   CORE --> TYPES
 ```
 
 ---
 
-## 5. Core Components
+## 5. Plugin Architecture
 
-### 5.1 Scanner CLI (`@stile/cli`)
-
-* Scans source files.
-* Executes plugin chains similar to Webpack loaders.
-* Produces JSON or NDJSON report.
-
-Example:
-
-```bash
-npx @stile/cli scan --path ./apps/web --out stile-report.json
+### Plugin Interface
+```ts
+export interface StilePlugin {
+  name: string;
+  test?: RegExp;
+  run: (context: StileContext) => Promise<void> | void;
+}
 ```
 
-**Sample Config**
+### Example Plugin
+```ts
+import { StilePlugin } from "@stile/core";
+import { parse } from "@babel/parser";
+import traverse from "@babel/traverse";
 
-```js
-export default {
-  rootDir: "./src",
-  rules: [
-    {
-      test: /\.(t|j)sx?$/,
-      use: ["@stile/plugin-no-inline-style", "@stile/plugin-ds-usage"]
-    }
-  ]
+export const noInlineStylePlugin: StilePlugin = {
+  name: "no-inline-style",
+  test: /\.tsx?$/,
+  run(ctx) {
+    const ast = parse(ctx.source, { sourceType: "module", plugins: ["jsx", "typescript"] });
+    traverse(ast, {
+      JSXAttribute(path) {
+        if (path.node.name.name === "style") {
+          ctx.findings.push({
+            plugin: "no-inline-style",
+            message: "Avoid inline styles; use tokens or className.",
+            severity: "warn",
+            file: ctx.filePath,
+          });
+        }
+      },
+    });
+  },
 };
 ```
 
 ---
 
-### 5.2 Exporter (`@stile/exporter`)
-
-* Reads CLI output and forwards it to HTTP, S3, or Kafka.
-* Supports batching, retries, filters, and anonymization.
-
-Example:
-
-```bash
-npx @stile/exporter push --config stile.exporter.config.js
-```
-
----
-
-### 5.3 Loader (`@stile/loader`)
-
-* Ingests exported data into analytics databases.
-* Validates schema, deduplicates, and normalizes.
-
-```sql
-CREATE TABLE ds_findings (
-  project String,
-  rule String,
-  file String,
-  message String,
-  severity String,
-  timestamp DateTime
-) ENGINE = MergeTree() ORDER BY (project, rule, timestamp);
-```
-
----
-
-### 5.4 Analytics Dashboard (`@stile/dashboard`)
-
-* Next.js + shadcn/ui interface.
-* Reads from ClickHouse and Postgres.
-* Displays adherence, drift, and adoption metrics.
-
-```bash
-nx serve dashboard
-```
-
-Views include:
-
-* **Adherence Overview**
-* **Component Usage**
-* **Rule Violations**
-* **Team Health Trends**
-
----
-
-## 6. Data Contracts
-
-```ts
-export interface Finding {
-  project: string;
-  rule: string;
-  file: string;
-  message: string;
-  severity: "info" | "warn" | "error";
-  line?: number;
-  column?: number;
-  commit?: string;
-  timestamp: string;
-}
-
-export interface ScanReport {
-  meta: { project: string; commit: string; timestamp: string };
-  findings: Finding[];
-  summary: { filesScanned: number; violations: number; adherenceScore: number };
-}
-```
-
----
-
-## 7. Data Flow Diagram
+## 6. Data Flow
 
 ```mermaid
 sequenceDiagram
@@ -227,64 +143,73 @@ sequenceDiagram
     participant CLI as @stile/cli
     participant EXP as @stile/exporter
     participant LDR as @stile/loader
-    participant DB as Analytics DB
-    participant DASH as Dashboard UI
+    participant DB as ClickHouse
+    participant GRA as Grafana
 
     Dev->>CLI: stile scan --path ./src
-    CLI->>CLI: Analyze via plugins
     CLI->>EXP: Emit JSON/NDJSON report
-    EXP->>LDR: Push data (HTTP/S3/Kafka)
+    EXP->>LDR: Push data to ingestion endpoint
     LDR->>DB: Normalize & store findings
-    DB->>DASH: Query metrics
-    DASH->>Dev: Visualize adherence
+    GRA->>DB: Query metrics
+    GRA->>Dev: Visualize adherence & drift
 ```
 
 ---
 
-## 8. Development Roadmap
+## 7. Exporter vs Loader
 
-| Phase       | Duration  | Deliverables           |
-| ----------- | --------- | ---------------------- |
-| **Phase 1** | 2–3 weeks | Scanner Core + CLI     |
-| **Phase 2** | 1–2 weeks | Exporter               |
-| **Phase 3** | 2–3 weeks | Loader + DB schema     |
-| **Phase 4** | 3–4 weeks | Analytics Dashboard    |
-| **Phase 5** | Later     | Runtime SDK (optional) |
+| Aspect | **Exporter** | **Loader** |
+|--------|---------------|-------------|
+| **Purpose** | Move data from the scanner to a reliable destination | Ingest, validate, and store data into analytics DB |
+| **Runs where** | Near the scanner or CI/CD pipelines | Near the database or in backend infra |
+| **Responsibility** | Packaging, transport (HTTP, Kafka, file) | Validation, normalization, deduplication |
+| **Output** | File, HTTP payload, or Kafka stream | ClickHouse/Postgres inserts |
+| **Failure handling** | Retry and buffering | Schema enforcement and deduplication |
+| **Analogy** | Fluent Bit (log forwarder) | Elasticsearch (log store) |
 
 ---
 
-## 9. Non-Functional Requirements
+## 8. Grafana Integration
 
-| Category          | Target                            |
-| ----------------- | --------------------------------- |
-| **Performance**   | Scan 5k files < 30s               |
-| **Extensibility** | Custom rule plugins (npm)         |
-| **Security**      | API key auth for exporter         |
-| **Reliability**   | Retry + checkpointing in exporter |
-| **Portability**   | Node.js ≥18, Nx monorepo          |
-| **Observability** | CLI logs + metrics dashboards     |
+- Uses ClickHouse as the primary data source.  
+- Predefined dashboards for adherence, usage, violations, and token drift.  
+- Supports alerting via Grafana.
+
+**Example Query:**
+```sql
+SELECT
+  plugin,
+  count() AS violations,
+  uniq(file) AS affected_files
+FROM ds_findings
+WHERE timestamp > now() - INTERVAL 30 DAY
+GROUP BY plugin
+ORDER BY violations DESC;
+```
+
+---
+
+## 9. Development Roadmap
+
+| Phase | Duration | Deliverables |
+|--------|-----------|--------------|
+| **Phase 1** | 2–3 weeks | Core Scanner + Plugin API |
+| **Phase 2** | 1–2 weeks | Exporter module |
+| **Phase 3** | 2–3 weeks | Loader + DB schema |
+| **Phase 4** | 2 weeks | Grafana dashboards + infra |
+| **Phase 5** | Later | SDK / runtime telemetry |
 
 ---
 
 ## 10. Tech Stack Summary
 
-| Layer         | Technology                                  |
-| ------------- | ------------------------------------------- |
-| CLI/Core      | Node.js, TypeScript, TS-Morph               |
-| Exporter      | Node.js, Axios, Kafka client                |
-| Loader        | Fastify, Zod, ClickHouse                    |
-| Dashboard     | Next.js (App Router), shadcn/ui, Recharts   |
-| Infra         | Docker Compose (ClickHouse, Grafana, Kafka) |
-| Orchestration | Nx Workspace                                |
-
----
-
-## 11. Future Enhancements
-
-* VS Code plugin for inline rule feedback
-* Figma API integration for design-code drift
-* LLM-based adherence insights
-* Plugin marketplace
-* Cloud ingestion service (Stile Cloud)
+| Layer | Technology |
+|--------|-------------|
+| CLI/Core | Node.js, TypeScript, TS-Morph |
+| Exporter | Node.js, Axios, Kafka client |
+| Loader | Fastify, Zod, ClickHouse |
+| Analytics | Grafana Dashboards |
+| Infra | Docker Compose (ClickHouse + Grafana) |
+| Orchestration | Nx Workspace |
 
 ---

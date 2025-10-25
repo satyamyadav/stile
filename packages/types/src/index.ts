@@ -3,15 +3,28 @@
  */
 
 export interface Finding {
-  project: string;
-  rule: string;
-  file: string;
+  plugin: string;
   message: string;
   severity: "info" | "warn" | "error";
+  file: string;
+  project: string;
+  timestamp: string;
   line?: number;
   column?: number;
   commit?: string;
-  timestamp: string;
+  metadata?: Record<string, any>;
+}
+
+export interface ComponentInsight {
+  project: string;
+  file: string;
+  component: string;
+  source: string;
+  category: "design-system" | "custom" | "third-party";
+  occurrences: number;
+  props: string[];
+  commit?: string;
+  framework?: "react" | "vue" | "angular" | "svelte";
 }
 
 export interface ScanReport {
@@ -28,17 +41,22 @@ export interface ScanReport {
     adherenceScore: number;
     duration: number;
   };
+  components?: ComponentInsight[];
+  metrics?: {
+    componentsAnalyzed: number;
+    designSystemComponents: number;
+    customComponents: number;
+  };
 }
 
-export interface PluginConfig {
-  test: RegExp | string;
-  use: string[];
-  options?: Record<string, any>;
+export interface StileRule {
+  test?: RegExp;
+  plugins: Array<string | { name: string; options?: Record<string, any> }>;
 }
 
 export interface StileConfig {
   rootDir: string;
-  rules: PluginConfig[];
+  rules: StileRule[];
   output?: {
     format: "json" | "ndjson";
     file?: string;
@@ -46,17 +64,19 @@ export interface StileConfig {
   exclude?: string[];
 }
 
-export interface Plugin {
-  name: string;
-  version: string;
-  apply: (file: FileContext) => Finding[];
+export interface StileContext {
+  filePath: string;
+  project: string;
+  source: string;
+  findings: Finding[];
+  components: ComponentInsight[];
+  commit?: string;
 }
 
-export interface FileContext {
-  path: string;
-  content: string;
-  project: string;
-  commit?: string;
+export interface StilePlugin {
+  name: string;
+  test?: RegExp;
+  run: (context: StileContext, options?: Record<string, any>) => void | Promise<void>;
 }
 
 export interface ExporterConfig {

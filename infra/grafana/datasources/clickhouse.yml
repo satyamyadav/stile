@@ -1,0 +1,18 @@
+apiVersion: 1
+
+datasources:
+  - name: Stile ClickHouse
+    uid: stile-clickhouse
+    type: grafana-clickhouse-datasource
+    access: proxy
+    isDefault: true
+    jsonData:
+      host: clickhouse
+      port: 8123
+      protocol: http
+      username: stile
+      defaultDatabase: stile
+      timeout: "30"
+      serverVersion: auto
+    secureJsonData:
+      password: stile123

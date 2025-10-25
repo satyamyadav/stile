@@ -23,7 +23,7 @@
       "@stile/loader": ["packages/loader/src/index.ts"],
       "@stile/dashboard": ["packages/dashboard/src/index.ts"],
       "@stile/types": ["packages/types/src/index.ts"],
-      "@stile/rules": ["packages/rules/src/index.ts"]
+      "@stile/plugins": ["packages/plugins/src/index.ts"]
     }
   },
   "exclude": ["node_modules", "tmp", "dist", "build"]
