@@ -96,6 +96,9 @@ export class StileExporter {
         case "kafka":
           await this.exportToKafka(report);
           break;
+        case "file":
+          await this.exportToFile(report);
+          break;
         default:
           throw new Error(`Unsupported export type: ${this.config.type}`);
       }
@@ -191,6 +194,20 @@ export class StileExporter {
     } finally {
       await producer.disconnect();
     }
+  }
+
+  /**
+   * Export to local file system
+   */
+  private async exportToFile(report: ScanReport): Promise<void> {
+    const filePath = this.config.endpoint;
+    const content = JSON.stringify(report, null, 2);
+    
+    // Ensure directory exists
+    const dir = path.dirname(filePath);
+    await fs.ensureDir(dir);
+    
+    await fs.writeFile(filePath, content, "utf-8");
   }
 
   /**

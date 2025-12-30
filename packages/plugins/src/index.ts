@@ -235,6 +235,9 @@ export const reactComponentAnalysisPlugin: StilePlugin = {
   },
 };
 
+// Export sample plugin
+export { sampleMagicNumberPlugin } from "./sample-plugin";
+
 export const plugins: StilePlugin[] = [
   noInlineStylePlugin,
   designSystemUsagePlugin,

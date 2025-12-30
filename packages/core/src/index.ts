@@ -13,6 +13,7 @@ import {
   StilePlugin,
   StileContext,
 } from "@stile/types";
+import { StileExporter } from "@stile/exporter";
 
 type LoadedPlugin = {
   definition: StilePlugin;
@@ -30,51 +31,117 @@ export class StileEngine {
   }
 
   registerPlugin(plugin: StilePlugin): void {
+    // Validate plugin structure
+    if (!plugin.name || typeof plugin.name !== "string") {
+      throw new Error("Plugin must have a valid 'name' property");
+    }
+    if (typeof plugin.run !== "function") {
+      throw new Error(`Plugin ${plugin.name} must have a 'run' function`);
+    }
+    
+    // Check for duplicate plugin names
+    if (this.pluginRegistry.has(plugin.name)) {
+      console.warn(chalk.yellow(`Plugin ${plugin.name} is already registered. Overwriting...`));
+    }
+    
     this.pluginRegistry.set(plugin.name, plugin);
   }
 
   async ensurePlugins(pluginRefs: string[]): Promise<void> {
+    const missingPlugins: string[] = [];
+    
     for (const name of pluginRefs) {
       if (this.pluginRegistry.has(name)) continue;
       try {
         const plugin = await this.resolvePlugin(name);
         this.registerPlugin(plugin);
       } catch (error) {
-        console.warn(chalk.yellow(`Failed to load plugin ${name}: ${error instanceof Error ? error.message : error}`));
+        missingPlugins.push(name);
+        const errorMessage = error instanceof Error ? error.message : String(error);
+        console.warn(
+          chalk.yellow(`⚠️  Failed to load plugin "${name}": ${errorMessage}`)
+        );
       }
+    }
+    
+    if (missingPlugins.length > 0) {
+      console.warn(
+        chalk.yellow(
+          `\n⚠️  ${missingPlugins.length} plugin(s) failed to load: ${missingPlugins.join(", ")}\n` +
+          `   Make sure these plugins are installed and properly exported.\n`
+        )
+      );
     }
   }
 
   private async resolvePlugin(name: string): Promise<StilePlugin> {
+    // Try built-in plugins first
     if (name.startsWith("@stile/plugin")) {
-      const builtin = await import("@stile/plugins");
-      const lookup: Record<string, string> = {
-        "@stile/plugin-no-inline-style": "noInlineStylePlugin",
-        "@stile/plugin-ds-usage": "designSystemUsagePlugin",
-        "@stile/plugin-unused-components": "unusedComponentsPlugin",
-        "@stile/plugin-inconsistent-spacing": "inconsistentSpacingPlugin",
-        "@stile/plugin-accessibility": "accessibilityPlugin",
-        "@stile/plugin-react-component-analysis": "reactComponentAnalysisPlugin",
-      };
-      const exportName = lookup[name] || name;
-      const candidate = (builtin as Record<string, any>)[exportName];
-      if (candidate && typeof candidate === "object" && "run" in candidate) {
-        return candidate as StilePlugin;
+      try {
+        const builtin = await import("@stile/plugins");
+        const lookup: Record<string, string> = {
+          "@stile/plugin-no-inline-style": "noInlineStylePlugin",
+          "@stile/plugin-ds-usage": "designSystemUsagePlugin",
+          "@stile/plugin-unused-components": "unusedComponentsPlugin",
+          "@stile/plugin-inconsistent-spacing": "inconsistentSpacingPlugin",
+          "@stile/plugin-accessibility": "accessibilityPlugin",
+          "@stile/plugin-react-component-analysis": "reactComponentAnalysisPlugin",
+          "@stile/plugin-sample-magic-numbers": "sampleMagicNumberPlugin",
+        };
+        const exportName = lookup[name] || name;
+        const candidate = (builtin as Record<string, any>)[exportName];
+        if (candidate && typeof candidate === "object" && "run" in candidate) {
+          return candidate as StilePlugin;
+        }
+        throw new Error(`Built-in plugin "${name}" not found. Available: ${Object.keys(lookup).join(", ")}`);
+      } catch (error) {
+        if (error instanceof Error && error.message.includes("Built-in plugin")) {
+          throw error;
+        }
+        throw new Error(`Failed to load built-in plugin "${name}": ${error instanceof Error ? error.message : String(error)}`);
       }
     }
 
-    const module = await import(name);
-    if (module?.default && typeof module.default === "object") {
-      return module.default as StilePlugin;
-    }
-    if (typeof module === "object") {
-      if (module[name]) return module[name] as StilePlugin;
-      const exported = Object.values(module)[0];
-      if (exported && typeof exported === "object" && "run" in (exported as any)) {
+    // Try external plugin
+    try {
+      const module = await import(name);
+      
+      // Check default export
+      if (module?.default && typeof module.default === "object" && "run" in module.default) {
+        return module.default as StilePlugin;
+      }
+      
+      // Check named export matching the plugin name
+      if (module[name] && typeof module[name] === "object" && "run" in module[name]) {
+        return module[name] as StilePlugin;
+      }
+      
+      // Check first exported object with 'run' method
+      const exported = Object.values(module).find(
+        (exp) => typeof exp === "object" && exp !== null && "run" in exp
+      );
+      if (exported) {
         return exported as StilePlugin;
       }
+      
+      throw new Error(
+        `Module "${name}" does not export a valid StilePlugin. ` +
+        `Expected an object with a 'run' function.`
+      );
+    } catch (error) {
+      if (error instanceof Error) {
+        const errorMessage = error.message.toLowerCase();
+        if (errorMessage.includes("cannot find module") || errorMessage.includes("module not found")) {
+          throw new Error(
+            `Plugin "${name}" not found. ` +
+            `Make sure it's installed: npm install ${name}`
+          );
+        }
+      }
+      throw new Error(
+        `Failed to load plugin "${name}": ${error instanceof Error ? error.message : String(error)}`
+      );
     }
-    throw new Error(`Module ${name} does not export a StilePlugin`);
   }
 
   async scan(config: StileConfig): Promise<ScanReport> {
@@ -137,7 +204,40 @@ export class StileEngine {
     console.log(chalk.gray(`Violations found: ${violations}`));
     console.log(chalk.gray(`Adherence score: ${adherenceScore}%`));
 
+    // Auto-export if configured
+    if (config.export?.enabled) {
+      await this.exportReport(report, config);
+    }
+
     return report;
+  }
+
+  /**
+   * Export scan report using configured exporter
+   */
+  private async exportReport(report: ScanReport, config: StileConfig): Promise<void> {
+    if (!config.export || !config.export.enabled) {
+      return;
+    }
+
+    try {
+      // Map StileConfig.export to ExporterConfig
+      const exporterConfig = {
+        type: config.export.type,
+        endpoint: config.export.endpoint,
+        batchSize: config.export.batchSize,
+        retries: config.export.retries,
+        timeout: config.export.timeout,
+        auth: config.export.auth,
+      };
+
+      const exporter = new StileExporter(exporterConfig);
+      await exporter.export(report);
+      console.log(chalk.green("✅ Report exported successfully"));
+    } catch (error) {
+      console.warn(chalk.yellow(`⚠️  Export failed: ${error instanceof Error ? error.message : error}`));
+      // Don't throw - export failure shouldn't fail the scan
+    }
   }
 
   private async findFiles(config: StileConfig): Promise<string[]> {

@@ -61,6 +61,18 @@ export interface StileConfig {
     format: "json" | "ndjson";
     file?: string;
   };
+  export?: {
+    enabled?: boolean;
+    type: "http" | "s3" | "kafka" | "file";
+    endpoint: string;
+    batchSize?: number;
+    retries?: number;
+    timeout?: number;
+    auth?: {
+      type: "api-key" | "bearer" | "basic";
+      value: string;
+    };
+  };
   exclude?: string[];
 }
 
@@ -75,13 +87,16 @@ export interface StileContext {
 
 export interface StilePlugin {
   name: string;
+  version?: string;
+  description?: string;
+  author?: string;
   test?: RegExp;
   run: (context: StileContext, options?: Record<string, any>) => void | Promise<void>;
 }
 
 export interface ExporterConfig {
-  type: "http" | "s3" | "kafka";
-  endpoint: string;
+  type: "http" | "s3" | "kafka" | "file";
+  endpoint: string;  // For file type, this is the file path
   batchSize?: number;
   retries?: number;
   timeout?: number;

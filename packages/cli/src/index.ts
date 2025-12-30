@@ -26,13 +26,34 @@ program
   .option("-c, --config <file>", "Configuration file", "stile.config.js")
   .option("-o, --output <file>", "Output file", "stile-report.json")
   .option("--format <format>", "Output format", "json")
+  .option("--export", "Force export after scan (overrides config)")
+  .option("--no-export", "Disable export even if configured")
   .action(async (options) => {
     const spinner = ora("Initializing Stile scan...").start();
     
     try {
       const config = await loadConfig(options.config, options.path);
+      
+      // Handle export override flags
+      if (options.export !== undefined) {
+        if (options.export) {
+          // Force enable export
+          if (!config.export) {
+            throw new Error("--export flag used but no export configuration found in stile.config.js");
+          }
+          config.export.enabled = true;
+        } else {
+          // Disable export
+          if (config.export) {
+            config.export.enabled = false;
+          }
+        }
+      }
+      
+      spinner.text = "Validating configuration...";
+      validateConfig(config);
+      
       spinner.text = "Loading plugins...";
-
       const engine = new StileEngine();
       const pluginNames = config.rules.flatMap((rule) =>
         rule.plugins.map((plugin) => (typeof plugin === "string" ? plugin : plugin.name))
@@ -58,9 +79,13 @@ program
       console.log(chalk.gray(`Adherence score: ${report.summary.adherenceScore}%`));
       console.log(chalk.gray(`Duration: ${report.summary.duration}ms`));
       
+      if (config.export?.enabled) {
+        console.log(chalk.green("\n✅ Report exported successfully"));
+      }
+      
     } catch (error) {
       spinner.fail(chalk.red("Scan failed:"));
-      console.error(chalk.red(error.message));
+      console.error(chalk.red(error instanceof Error ? error.message : String(error)));
       process.exit(1);
     }
   });
@@ -110,7 +135,6 @@ async function loadConfig(configPath: string, rootDir?: string): Promise<StileCo
   }
   
   try {
-    // In a real implementation, this would properly load and validate the config
     const config = await import(fullPath);
     const defaultConfig = config.default || config;
     
@@ -120,10 +144,51 @@ async function loadConfig(configPath: string, rootDir?: string): Promise<StileCo
       rootDir: rootDir || rawConfig.rootDir || "./src",
       rules: normalizeRules(rawConfig.rules || []),
       output: rawConfig.output || { format: "json" },
+      export: rawConfig.export, // Include export config
       exclude: rawConfig.exclude || [],
     };
   } catch (error) {
-    throw new Error(`Failed to load configuration: ${error.message}`);
+    throw new Error(`Failed to load configuration: ${error instanceof Error ? error.message : String(error)}`);
+  }
+}
+
+/**
+ * Validate configuration structure
+ */
+function validateConfig(config: StileConfig): void {
+  if (!config.rootDir) {
+    throw new Error("Configuration must have a 'rootDir' property");
+  }
+  
+  if (!config.rules || !Array.isArray(config.rules) || config.rules.length === 0) {
+    throw new Error("Configuration must have at least one rule in 'rules' array");
+  }
+  
+  for (const rule of config.rules) {
+    if (!rule.plugins || !Array.isArray(rule.plugins) || rule.plugins.length === 0) {
+      throw new Error("Each rule must have at least one plugin in 'plugins' array");
+    }
+    
+    // Validate test regex if provided
+    if (rule.test && !(rule.test instanceof RegExp)) {
+      throw new Error("Rule 'test' property must be a RegExp");
+    }
+  }
+  
+  // Validate export config if provided
+  if (config.export) {
+    if (!config.export.type) {
+      throw new Error("Export configuration must have a 'type' property");
+    }
+    
+    const validTypes = ["http", "s3", "kafka", "file"];
+    if (!validTypes.includes(config.export.type)) {
+      throw new Error(`Export type must be one of: ${validTypes.join(", ")}`);
+    }
+    
+    if (!config.export.endpoint) {
+      throw new Error("Export configuration must have an 'endpoint' property");
+    }
   }
 }
 
@@ -157,6 +222,26 @@ function generateDefaultConfig(): string {
   output: {
     format: "json"
   },
+  // Optional: Auto-export after scan
+  // Uncomment and configure to enable automatic export
+  // export: {
+  //   enabled: true,
+  //   type: "http",  // http | s3 | kafka | file
+  //   endpoint: "http://localhost:3001",  // HTTP endpoint, S3 bucket, or Kafka broker
+  //   batchSize: 100,
+  //   retries: 3,
+  //   timeout: 30000,
+  //   auth: {
+  //     type: "api-key",  // api-key | bearer | basic
+  //     value: "your-api-key-here"
+  //   }
+  // },
+  // Example: Export to file
+  // export: {
+  //   enabled: true,
+  //   type: "file",
+  //   endpoint: "./stile-export.json"
+  // },
   exclude: [
     "node_modules/**",
     "dist/**",
