@@ -10,15 +10,19 @@ jest.mock('glob', () => ({
   glob: jest.fn(),
 }));
 
-jest.mock('chalk', () => ({
-  default: {
+jest.mock('chalk', () => {
+  const mockChalk = {
     blue: jest.fn((str) => str),
     gray: jest.fn((str) => str),
     green: jest.fn((str) => str),
     yellow: jest.fn((str) => str),
     red: jest.fn((str) => str),
-  },
-}));
+  };
+  return {
+    __esModule: true,
+    default: mockChalk,
+  };
+});
 
 jest.mock('@stile/exporter', () => ({
   StileExporter: jest.fn().mockImplementation(() => ({

@@ -61,11 +61,18 @@ export const sampleMagicNumberPlugin: StilePlugin = {
       
       // Check if it's likely a magic number (not a version, date, etc.)
       const line = lines[lineNumber - 1];
+      const matchStart = match.index;
+      const matchEnd = matchStart + match[0].length;
+      
+      // Check if the number is part of a version string (e.g., "1.2.3" or "v1.2.3")
+      const beforeMatch = source.substring(Math.max(0, matchStart - 10), matchStart);
+      const afterMatch = source.substring(matchEnd, Math.min(source.length, matchEnd + 10));
+      const contextAround = beforeMatch + match[0] + afterMatch;
+      
       const isLikelyMagicNumber = 
-        !line.includes('version') &&
-        !line.includes('Version') &&
-        !line.match(/\d{4}-\d{2}-\d{2}/) && // Not a date
-        !line.match(/v?\d+\.\d+\.\d+/); // Not a semver version
+        !contextAround.match(/v?\d+\.\d+\.\d+/) && // Not a semver version
+        !contextAround.match(/\d{4}-\d{2}-\d{2}/) && // Not a date
+        !contextAround.match(/version\s*[:=]\s*["']?\d/); // Not a version assignment
       
       if (isLikelyMagicNumber) {
         findings.push({

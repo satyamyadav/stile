@@ -3,7 +3,7 @@
  * 
  * @see https://nx.dev/docs/technologies/test-tools/jest/introduction
  */
-export default {
+module.exports = {
   displayName: 'core',
   preset: '../../jest.preset.js',
   testEnvironment: 'node',
